@@ -1,16 +1,26 @@
 import requests
 from datetime import date, timedelta, datetime
 import csv
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.base import MIMEBase
+from email import encoders
+import os
+import configparser
 
 
-def get_data():
+def get_data(key_beeline):
+    """
+    Делаем запрос в Билайн на получение всей статистики за вчерашний день (сутки)
+    :return: словарь со статистикой
+    """
     result = []
     start_date = date.today() - timedelta(days=2)
     yesterday = date.today() - timedelta(days=1)
     n = 0
     while True:
         headers = {
-            'X-MPBX-API-AUTH-TOKEN': '',
+            'X-MPBX-API-AUTH-TOKEN': key_beeline,
         }
         params = {
             'dateFrom': f'{start_date.strftime("%Y-%m-%d")}T21:00:00.000Z',
@@ -26,6 +36,12 @@ def get_data():
             return result
 
 def get_commerce_data(full_list):
+    """
+    Сортируем поступивший json на предмет наличия номера в какой либо группе (на момент написания скрипта группа только
+    одна "Ком")
+    :param full_list: словарь с полным перечнем звонков
+    :return: словарь с отфильтрованными звонками
+    """
     result = []
     for call in full_list:
         if 'department' in call:
@@ -33,6 +49,10 @@ def get_commerce_data(full_list):
     return result
 
 def get_csv_file(commerce_list):
+    """
+    Преобразуем словарь в csv файл со именем согласно вчерашней дате и кладем его в ./stats/
+    :param commerce_list: словарь со статистикой звонков
+    """
     processed_list = []
     for call in commerce_list:
         processed_call = {}
@@ -52,20 +72,46 @@ def get_csv_file(commerce_list):
         dict_writer = csv.DictWriter(output_file, keys)
         dict_writer.writeheader()
         dict_writer.writerows(processed_list)
+    return f'./stats/{date.today() - timedelta(days=1)}.csv'
+
+def send_email(filepath, address_to, pass_mail):
+    """
+    Функция отпарвляет csv файл по почте
+    :param filepath: путь до файла
+    :param address_to: список адресатов
+    :param pass_mail: пароль от почты отпарвления
+    """
+    basename = os.path.basename(filepath)
+    address_from = 'telreport@a-don.ru'
+
+    part = MIMEBase('application', "octet-stream")
+    part.set_payload(open(filepath, "rb").read())
+    encoders.encode_base64(part)
+    part.add_header('Content-Disposition', 'attachment; filename="%s"' % basename)
+
+    for mail in address_to:
+
+        msg = MIMEMultipart()
+        msg['From'] = address_from
+        msg['To'] = mail
+        msg['Subject'] = f'Отчет по звонкам Билайн за {date.today() - timedelta(days=1)}'
+        msg.attach(part)
+
+        server = smtplib.SMTP('smtp.yandex.ru: 587')
+        server.starttls()
+        server.login(address_from, pass_mail)
+        server.sendmail(address_from, mail, msg.as_string())
+        server.quit()
+
     return
 
-
 if __name__ == '__main__':
-    all_call = get_data()
+    config = configparser.ConfigParser()
+    config.read('settings.ini')
+    key = config['Beeline']['key']
+    all_call = get_data(key)
     commerce_data = get_commerce_data(all_call)
-    get_csv_file(commerce_data)
-    # to_csv = [
-    #     {'name': 'bob', 'age': 25, 'weight': 200},
-    #     {'name': 'jim', 'age': 31, 'weight': 180},
-    # ]
-    #
-    #
-    # with open('people.csv', 'w', newline='') as output_file:
-    #     dict_writer = csv.DictWriter(output_file, keys)
-    #     dict_writer.writeheader()
-    #     dict_writer.writerows(to_csv)
+    csv_file = get_csv_file(commerce_data)
+    pass_ya = config['Yandex']['pass']
+    email_to_send = ['a.kudinov@a-don.ru', 'reanim86@yandex.ru']
+    send_email(csv_file, email_to_send, pass_ya)
