@@ -113,5 +113,5 @@ if __name__ == '__main__':
     commerce_data = get_commerce_data(all_call)
     csv_file = get_csv_file(commerce_data)
     pass_ya = config['Yandex']['pass']
-    email_to_send = ['a.kudinov@a-don.ru', 'reanim86@yandex.ru']
+    email_to_send = ['a.kudinov@a-don.ru', 'it@a-don.ru']
     send_email(csv_file, email_to_send, pass_ya)
