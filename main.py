@@ -2,6 +2,8 @@ import requests
 from datetime import date, timedelta, datetime
 import csv
 import smtplib
+
+import smtplib as smtp
 from email.mime.multipart import MIMEMultipart
 from email.mime.base import MIMEBase
 from email import encoders
@@ -82,7 +84,7 @@ def send_email(filepath, address_to, pass_mail):
     :param pass_mail: пароль от почты отпарвления
     """
     basename = os.path.basename(filepath)
-    address_from = 'telreport@a-don.ru'
+    address_from = 'telephonreport@yandex.ru'
 
     part = MIMEBase('application', "octet-stream")
     part.set_payload(open(filepath, "rb").read())
@@ -97,9 +99,17 @@ def send_email(filepath, address_to, pass_mail):
         msg['Subject'] = f'Отчет по звонкам Билайн за {date.today() - timedelta(days=1)}'
         msg.attach(part)
 
-        server = smtplib.SMTP('smtp.yandex.ru: 587')
-        server.starttls()
+        # server = smtplib.SMTP('smtp.yandex.ru: 587')
+        # server.starttls()
+        # server.login(address_from, pass_mail)
+        # server.sendmail(address_from, mail, msg.as_string())
+        # server.quit()
+
+        server = smtp.SMTP_SSL('smtp.yandex.com')
+        server.set_debuglevel(1)
+        server.ehlo(address_from)
         server.login(address_from, pass_mail)
+        server.auth_plain()
         server.sendmail(address_from, mail, msg.as_string())
         server.quit()
 
@@ -113,5 +123,5 @@ if __name__ == '__main__':
     commerce_data = get_commerce_data(all_call)
     csv_file = get_csv_file(commerce_data)
     pass_ya = config['Yandex']['pass']
-    email_to_send = ['a.kudinov@a-don.ru', 'it@a-don.ru']
+    email_to_send = ['a.kudinov@a-don.ru']
     send_email(csv_file, email_to_send, pass_ya)
