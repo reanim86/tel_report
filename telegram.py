@@ -1,15 +1,18 @@
-import requests
 import configparser
+import telebot
 
-def send_mes():
-    config = configparser.ConfigParser()
-    config.read('settings.ini')
-    token = config['Tg']['token']
-    chat_id = "64619556"
-    # message = "bot message"
-    with open("./stats/2023-09-28.csv", "rb") as filexlsx:
-        files = {"document": filexlsx}
-    url = f"https://api.telegram.org/bot{token}/sendDocument?chat_id={chat_id}', files=files)"
-    print(requests.get(url).json())  # Эта строка отсылает сообщение
+def send_mes_telebot(file, chat):
+    """
+    Отправка файла в телеграм с помощь. бота
+    :param file: путь к файлу
+    :param chat: id чата
+    """
+    bot = telebot.TeleBot(token)
+    f = open(file, "rb")
+    bot.send_document(chat, f)
     return
-send_mes()
+
+config = configparser.ConfigParser()
+config.read('settings.ini')
+token = config['Tg']['token']
+chat_id = "64619556"
